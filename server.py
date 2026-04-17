@@ -63,12 +63,15 @@ async def api_contato(request: Request):
         message = data.get("message", "Sem Mensagem")
         data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
+        print(f"📥 Recebido Contato Portfólio: {name}")
+
         sheet, sheet_error = connect_sheets()
         if sheet:
-            sheet.append_row([name, email, f"PORTFÓLIO: {message} - {data_hora}"])
-            print(f"✅ Nova Mensagem Salva: {name}")
+            # Padrão 5 colunas: Nome | WhatsApp/Email | Mensagem/Valor | Origem | Data/Hora
+            sheet.append_row([name, email, message, "PORTFOLIO_SITE", data_hora])
+            print(f"✅ Salvo no Sheets (Portfólio): {name}")
         else:
-            print(f"⚠️ Não salvou no Sheets. Erro: {sheet_error}")
+            print(f"⚠️ Erro Sheets: {sheet_error}")
 
         msg = (
             f"💼 *NOVO CONTATO NO PORTFÓLIO!*\n\n"
@@ -78,7 +81,7 @@ async def api_contato(request: Request):
             f"⏰ *Data:* {data_hora}"
         )
         send_telegram_message(msg)
-        return {"success": True}
+        return {"success": True, "timestamp": data_hora}
     except Exception as e:
         print(f"❌ Erro em /api/contato: {e}")
         return {"success": False, "error": str(e)}
@@ -93,22 +96,25 @@ async def api_leads(request: Request):
         billAmount = data.get("billAmount", "0")
         data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
+        print(f"📥 Recebido Lead Solar: {name}")
+
         sheet, sheet_error = connect_sheets()
         if sheet:
-            sheet.append_row([name, whatsapp, f"R$ {billAmount} - {data_hora}"])
-            print(f"✅ Novo Lead Salvo: {name}")
+            # Padrão 5 colunas: Nome | WhatsApp/Email | Mensagem/Valor | Origem | Data/Hora
+            sheet.append_row([name, whatsapp, f"Conta: R$ {billAmount}", "SITE_SOLAR", data_hora])
+            print(f"✅ Salvo no Sheets (Solar): {name}")
         else:
-            print(f"⚠️ Não salvou no Sheets. Erro: {sheet_error}")
+            print(f"⚠️ Erro Sheets: {sheet_error}")
 
         msg = (
             f"🚀 *NOVO LEAD DO SITE SOLAR!*\n\n"
-            f"👤 *Nome:* {name}\n"
-            f"📱 *WhatsApp:* {whatsapp}\n"
-            f"💰 *Conta Mensal:* R$ {billAmount}\n"
-            f"⏰ *Data:* {data_hora}"
+            f"👤 *Nome:* ${name}\n"
+            f"📱 *WhatsApp:* ${whatsapp}\n"
+            f"💰 *Conta Mensal:* R$ ${billAmount}\n"
+            f"⏰ *Data:* ${data_hora}"
         )
         send_telegram_message(msg)
-        return {"success": True}
+        return {"success": True, "timestamp": data_hora}
     except Exception as e:
         print(f"❌ Erro em /api/leads: {e}")
         return {"success": False, "error": str(e)}
