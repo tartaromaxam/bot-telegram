@@ -115,23 +115,23 @@ async def api_leads(request: Request):
         data = await request.json()
         name = data.get("name", "Sem Nome")
         whatsapp = data.get("whatsapp", "Sem WhatsApp")
-        billAmount = data.get("billAmount", "0")
+        company_name = data.get("companyName", "Não Informada")
         data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-        print(f"📥 Recebido Lead Solar (Separado): {name}")
+        print(f"📥 Recebido Interesse em Site Solar: {name} ({company_name})")
 
         sheet, sheet_error = connect_sheets_tab("Leads Site")
         if sheet:
-            sheet.append_row([name, whatsapp, f"Conta: R$ {billAmount}", "SITE_SOLAR", data_hora])
+            sheet.append_row([name, whatsapp, f"Empresa: {company_name}", "LP_SITE_SOLAR", data_hora])
             print(f"✅ Salvo na aba Leads Site: {name}")
         else:
             print(f"⚠️ Erro Sheets: {sheet_error}")
 
         msg = (
-            f"🚀 *NOVO LEAD DO SITE SOLAR!*\n\n"
-            f"👤 *Nome:* {name}\n"
+            f"🎯 *NOVO INTERESSE EM SITE SOLAR!*\n\n"
+            f"👤 *Contato:* {name}\n"
+            f"🏢 *Empresa:* {company_name}\n"
             f"📱 *WhatsApp:* {whatsapp}\n"
-            f"💰 *Conta Mensal:* R$ {billAmount}\n"
             f"⏰ *Data:* {data_hora}"
         )
         send_telegram_message(msg)
