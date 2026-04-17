@@ -5,15 +5,17 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import requests as http_requests
+import gspread
+from google.oauth2.service_account import Credentials
 from telegram import Update
-from bot import connect_sheets, create_application
+from bot import create_application
 
 app = FastAPI(title="Mavinic Leads API")
 
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://mavinic.com.br", "http://mavinic.com.br"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -22,11 +24,32 @@ app.add_middleware(
 # Constantes
 TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN') or "8665918764:AAFQ7YIbl9m1cF0psSAj3KPEhamUHc78DfY"
 TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID') or "1533451976"
-WEBHOOK_URL = os.environ.get('RAILWAY_PUBLIC_DOMAIN')  # Ex: "bot-telegram-production-xxx.up.railway.app"
+WEBHOOK_URL = os.environ.get('RAILWAY_PUBLIC_DOMAIN')
 
 # Instância global da aplicação PTB
 ptb_app = create_application()
 
+def connect_sheets_tab(tab_name="Leads Site"):
+    try:
+        creds_json = os.getenv("GOOGLE_SHEETS_JSON")
+        if not creds_json:
+            return None, "Variável GOOGLE_SHEETS_JSON não encontrada."
+        
+        creds_dict = json.loads(creds_json)
+        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        client = gspread.authorize(creds)
+        
+        spreadsheet = client.open("Leads Bot")
+        
+        try:
+            return spreadsheet.worksheet(tab_name), None
+        except gspread.exceptions.WorksheetNotFound:
+            new_sheet = spreadsheet.add_worksheet(title=tab_name, rows=100, cols=5)
+            new_sheet.append_row(["Nome", "WhatsApp/Email", "Mensagem/Valor", "Origem", "Data/Hora"])
+            return new_sheet, None
+    except Exception as e:
+        return None, str(e)
 
 def send_telegram_message(text: str):
     """Envia mensagem via API HTTP direta (para notificações do dono)."""
@@ -63,13 +86,12 @@ async def api_contato(request: Request):
         message = data.get("message", "Sem Mensagem")
         data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-        print(f"📥 Recebido Contato Portfólio: {name}")
+        print(f"📥 Recebido Contato Portfólio (Separado): {name}")
 
-        sheet, sheet_error = connect_sheets()
+        sheet, sheet_error = connect_sheets_tab("Leads Site")
         if sheet:
-            # Padrão 5 colunas: Nome | WhatsApp/Email | Mensagem/Valor | Origem | Data/Hora
             sheet.append_row([name, email, message, "PORTFOLIO_SITE", data_hora])
-            print(f"✅ Salvo no Sheets (Portfólio): {name}")
+            print(f"✅ Salvo na aba Leads Site: {name}")
         else:
             print(f"⚠️ Erro Sheets: {sheet_error}")
 
@@ -96,22 +118,21 @@ async def api_leads(request: Request):
         billAmount = data.get("billAmount", "0")
         data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-        print(f"📥 Recebido Lead Solar: {name}")
+        print(f"📥 Recebido Lead Solar (Separado): {name}")
 
-        sheet, sheet_error = connect_sheets()
+        sheet, sheet_error = connect_sheets_tab("Leads Site")
         if sheet:
-            # Padrão 5 colunas: Nome | WhatsApp/Email | Mensagem/Valor | Origem | Data/Hora
             sheet.append_row([name, whatsapp, f"Conta: R$ {billAmount}", "SITE_SOLAR", data_hora])
-            print(f"✅ Salvo no Sheets (Solar): {name}")
+            print(f"✅ Salvo na aba Leads Site: {name}")
         else:
             print(f"⚠️ Erro Sheets: {sheet_error}")
 
         msg = (
             f"🚀 *NOVO LEAD DO SITE SOLAR!*\n\n"
-            f"👤 *Nome:* ${name}\n"
-            f"📱 *WhatsApp:* ${whatsapp}\n"
-            f"💰 *Conta Mensal:* R$ ${billAmount}\n"
-            f"⏰ *Data:* ${data_hora}"
+            f"👤 *Nome:* {name}\n"
+            f"📱 *WhatsApp:* {whatsapp}\n"
+            f"💰 *Conta Mensal:* R$ {billAmount}\n"
+            f"⏰ *Data:* {data_hora}"
         )
         send_telegram_message(msg)
         return {"success": True, "timestamp": data_hora}
