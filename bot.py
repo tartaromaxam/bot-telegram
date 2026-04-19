@@ -22,12 +22,13 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 NOME, WHATSAPP, MENSAGEM = range(3)
 
 # CONFIGURAÇÕES
-TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN') or "8665918764:AAFQ7YIbl9m1cF0psSAj3KPEhamUHc78DfY"
+TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN')
 SPREADSHEET_NAME = "Leads Bot"
 JSON_FILE_PATH = os.path.join(os.path.dirname(__file__), "credenciais.json")
 
 
-def connect_sheets():
+def connect_sheets(tab_name="Leads Bot"):
+    """Conecta ao Google Sheets e retorna a aba específica, criando-a se necessário."""
     try:
         scope = [
             "https://spreadsheets.google.com/feeds",
@@ -36,42 +37,50 @@ def connect_sheets():
             "https://www.googleapis.com/auth/drive"
         ]
 
-        # Modo 1: JSON completo na variável de ambiente
+        # Modo 1: JSON completo na variável de ambiente (Recomendado para Railway)
         google_json = os.environ.get('GOOGLE_SHEETS_JSON')
-        # Modo 2: Chave + Email separados
+        # Modo 2: Chave + Email separados (Fallback)
         private_key = os.environ.get('GOOGLE_PRIVATE_KEY')
         email = os.environ.get('GOOGLE_SERVICE_ACCOUNT_EMAIL')
 
+        creds = None
         if google_json:
             try:
                 creds_dict = json.loads(google_json)
                 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-                print("✅ Conectado ao Google Sheets via GOOGLE_SHEETS_JSON.")
+                print(f"✅ Conectado via GOOGLE_SHEETS_JSON (Aba: {tab_name})")
             except Exception as j_err:
                 raise Exception(f"Erro ao parsear GOOGLE_SHEETS_JSON: {j_err}")
 
         elif private_key and email:
             cleaned_key = private_key.strip('"').strip("'")
             cleaned_key = cleaned_key.replace('\\n', '\n').replace('\\\\n', '\n')
-            email = email.strip('"').strip("'")
-
             creds_dict = {
                 "type": "service_account",
                 "private_key": cleaned_key,
-                "client_email": email,
+                "client_email": email.strip('"').strip("'"),
                 "token_uri": "https://oauth2.googleapis.com/token",
             }
             creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-            print("✅ Conectado ao Google Sheets via Variáveis Separadas.")
+            print(f"✅ Conectado via Variáveis Separadas (Aba: {tab_name})")
 
         elif os.path.exists(JSON_FILE_PATH):
             creds = ServiceAccountCredentials.from_json_keyfile_name(JSON_FILE_PATH, scope)
-            print("✅ Conectado ao Google Sheets via Arquivo Local.")
+            print(f"✅ Conectado via Arquivo Local (Aba: {tab_name})")
         else:
-            raise Exception("Nenhuma credencial do Google (Arquivo ou Variável)!")
+            raise Exception("Nenhuma credencial do Google encontrada!")
 
         client = gspread.authorize(creds)
-        return client.open(SPREADSHEET_NAME).sheet1, None
+        spreadsheet = client.open(SPREADSHEET_NAME)
+        
+        try:
+            return spreadsheet.worksheet(tab_name), None
+        except gspread.exceptions.WorksheetNotFound:
+            print(f" criando aba: {tab_name}")
+            new_sheet = spreadsheet.add_worksheet(title=tab_name, rows=1000, cols=10)
+            new_sheet.append_row(["Nome", "WhatsApp", "Mensagem/Interesse", "Origem", "Data/Hora"])
+            return new_sheet, None
+
     except Exception as e:
         print(f"❌ ERRO GOOGLE SHEETS: {e}")
         return None, str(e)
@@ -127,7 +136,7 @@ async def collect_message_and_save(update: Update, context: ContextTypes.DEFAULT
 
     try:
         data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        sheet, sheet_error = connect_sheets()
+        sheet, sheet_error = connect_sheets("Leads Bot")
 
         if sheet:
             sheet.append_row([nome, whatsapp, msg_text, origem, data_hora])
@@ -168,6 +177,10 @@ def build_conv_handler():
 
 def create_application():
     """Cria e retorna a aplicação PTB configurada (sem iniciar polling)."""
+    if not TELEGRAM_TOKEN:
+        print("❌ ERRO: TELEGRAM_TOKEN não configurado nas variáveis de ambiente!")
+        sys.exit(1)
+        
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     application.add_handler(build_conv_handler())
     return application
