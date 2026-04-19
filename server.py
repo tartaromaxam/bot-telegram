@@ -15,7 +15,7 @@ app = FastAPI(title="Mavinic Leads API")
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://mavinic.com.br", "http://mavinic.com.br"],
+    allow_origin_regex=r"https?://([a-z0-9-]+\.)*mavinic\.com\.br",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
