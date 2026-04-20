@@ -3,7 +3,7 @@ import json
 import gspread
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from oauth2client.service_account import ServiceAccountCredentials
 from telegram import Update
 from telegram.ext import (
@@ -135,7 +135,9 @@ async def collect_message_and_save(update: Update, context: ContextTypes.DEFAULT
     print(f"[SISTEMA] Finalizando lead: {nome}")
 
     try:
-        data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        # Ajusta para o horário de Brasília (UTC-3)
+        fuso_horario = timezone(timedelta(hours=-3))
+        data_hora = datetime.now(fuso_horario).strftime("%d/%m/%Y %H:%M:%S")
         sheet, sheet_error = connect_sheets("Leads Bot")
 
         if sheet:

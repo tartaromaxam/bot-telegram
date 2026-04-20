@@ -3,7 +3,7 @@ import json
 import asyncio
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import requests as http_requests
 import gspread
 from google.oauth2.service_account import Credentials
@@ -65,7 +65,9 @@ async def api_contato(request: Request):
         name = data.get("name", "Sem Nome")
         email = data.get("email", "Sem Email")
         message = data.get("message", "Sem Mensagem")
-        data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        # Ajusta para o horário de Brasília (UTC-3)
+        fuso_horario = timezone(timedelta(hours=-3))
+        data_hora = datetime.now(fuso_horario).strftime("%d/%m/%Y %H:%M:%S")
 
         print(f"📥 Recebido Contato Portfólio (Separado): {name}")
 
@@ -97,7 +99,9 @@ async def api_leads(request: Request):
         name = data.get("name", "Sem Nome")
         whatsapp = data.get("whatsapp", "Sem WhatsApp")
         company_name = data.get("companyName", "Não Informada")
-        data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        # Ajusta para o horário de Brasília (UTC-3)
+        fuso_horario = timezone(timedelta(hours=-3))
+        data_hora = datetime.now(fuso_horario).strftime("%d/%m/%Y %H:%M:%S")
 
         print(f"📥 Recebido Interesse em Site Solar: {name} ({company_name})")
 
